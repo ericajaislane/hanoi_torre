@@ -34,4 +34,18 @@ Interface simples, visual e intuitiva, com discos coloridos empilhados nas torre
    bash
    git clone https://github.com/ericajaislane/hanoi_torre.git
 
-Desenvolvido por Erica Jaislane.
+Desenvolvido por Erica Jaislane. 
+
+Problemas e Soluções
+
+Durante o desenvolvimento, pensei em alguns problemas que poderiam ocorrer:
+
+Não permitir mover disco maior sobre disco menor (implementado validação antes do movimento).  
+Evitar seleção de discos que não estão no topo da torre.  
+Limitar número de discos para entre 3 e 5.  
+Prevenir cliques inválidos que poderiam causar erros.  
+Implementar drag-and-drop apenas para discos do topo.  
+Garantir que o jogo possa ser reiniciado limpando tudo corretamente.
+
+Essas soluções ajudam a manter o jogo funcionando corretamente e oferecem uma boa experiência ao usuário.
+

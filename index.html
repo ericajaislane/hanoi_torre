@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Torre de Hanoi</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 20px;
+  }
+  #torres {
+    display: flex;
+    justify-content: center;
+    margin-top: 40px;
+  }
+  .torre {
+    width: 120px;
+    height: 300px;
+    border: 2px solid #333;
+    margin: 0 20px;
+    position: relative;
+    background: #f4f4f4;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+    padding-bottom: 30px;
+  }
+  .disco {
+    height: 20px;
+    margin: 4px 0;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    user-select: none;
+  }
+  .disco[data-tamanho="1"] { width: 40px; background: #f44336; }
+  .disco[data-tamanho="2"] { width: 60px; background: #ff9800; }
+  .disco[data-tamanho="3"] { width: 80px; background: #ffeb3b; }
+  .disco[data-tamanho="4"] { width: 100px; background: #2196f3; }
+  .disco[data-tamanho="5"] { width: 120px; background: #9c27b0; }
+
+  .disco.selecionado {
+    border: 3px solid red;
+    filter: brightness(1.2);
+  }
+
+  .torre-label {
+    position: absolute;
+    bottom: -25px;
+    width: 100%;
+    font-weight: bold;
+    font-size: 18px;
+  }
+
+  #mensagem {
+    margin-top: 20px;
+    font-size: 1.2em;
+    min-height: 1.5em;
+  }
+
+  #controles {
+    margin-bottom: 15px;
+  }
+
+  button {
+    margin-left: 8px;
+    padding: 6px 12px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  #movimentos {
+    margin-top: 15px;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<h1>Torre de Hanoi</h1>
+
+<div id="controles">
+  <label for="numDiscos">Número de discos (3 a 5): </label>
+  <input type="number" id="numDiscos" value="3" min="3" max="5" />
+  <button onclick="iniciarJogo()">Iniciar Jogo</button>
+  <button onclick="reiniciarJogo()" style="display:none;" id="btnReiniciar">Reiniciar</button>
+</div>
+
+<div id="torres">
+  <div class="torre" data-torre="A">
+    <div class="torre-label">A</div>
+  </div>
+  <div class="torre" data-torre="B">
+    <div class="torre-label">B</div>
+  </div>
+  <div class="torre" data-torre="C">
+    <div class="torre-label">C</div>
+  </div>
+</div>
+
+<div id="mensagem"></div>
+<div id="movimentos">Movimentos: 0</div>
+
+<script>
+  let numDiscos = 3;
+  let torres = { A: [], B: [], C: [] };
+  let discoSelecionado = null;
+  let movimentos = 0;
+
+  function criarDisco(tamanho) {
+    const div = document.createElement('div');
+    div.classList.add('disco');
+    div.dataset.tamanho = tamanho;
+    div.draggable = true;
+
+    div.addEventListener('dragstart', discoDragStart);
+    div.addEventListener('click', () => selecionarDisco(div));
+    return div;
+  }
+
+  function iniciarJogo() {
+    // Ler e validar número de discos
+    numDiscos = parseInt(document.getElementById('numDiscos').value);
+    if (isNaN(numDiscos) || numDiscos < 3 || numDiscos > 5) {
+      alert('Digite um número entre 3 e 5.');
+      return;
+    }
+
+    // Reset variáveis e UI
+    torres = { A: [], B: [], C: [] };
+    discoSelecionado = null;
+    movimentos = 0;
+    atualizarMovimentos();
+    document.getElementById('mensagem').textContent = '';
+    document.getElementById('btnReiniciar').style.display = 'inline-block';
+
+    // Limpar torres
+    document.querySelectorAll('.torre').forEach(torreDiv => {
+      torreDiv.innerHTML = `<div class="torre-label">${torreDiv.dataset.torre}</div>`;
+      // Remover event listeners antigos para evitar duplicação
+      torreDiv.replaceWith(torreDiv.cloneNode(true));
+    });
+
+    // Re-obter as torres após clone
+    const torreA = document.querySelector('.torre[data-torre="A"]');
+    const torreB = document.querySelector('.torre[data-torre="B"]');
+    const torreC = document.querySelector('.torre[data-torre="C"]');
+
+    // Criar discos na torre A
+    for (let i = numDiscos; i >= 1; i--) {
+      torres.A.push(i);
+      const disco = criarDisco(i);
+      torreA.appendChild(disco);
+    }
+
+    // Preparar torres para receber discos - configurar eventos
+    [torreA, torreB, torreC].forEach(torreDiv => {
+      torreDiv.addEventListener('dragover', torreDragOver);
+      torreDiv.addEventListener('drop', torreDrop);
+      torreDiv.addEventListener('click', () => tentarMover(torreDiv.dataset.torre));
+    });
+  }
+
+  function reiniciarJogo() {
+    document.getElementById('mensagem').textContent = '';
+    discoSelecionado = null;
+    movimentos = 0;
+    atualizarMovimentos();
+    iniciarJogo();
+  }
+
+  function selecionarDisco(div) {
+    if (discoSelecionado) {
+      discoSelecionado.classList.remove('selecionado');
+    }
+    discoSelecionado = div;
+    discoSelecionado.classList.add('selecionado');
+  }
+
+  function tentarMover(destino) {
+    if (!discoSelecionado) return;
+
+    // Descobrir torre origem pelo disco selecionado
+    let origem = null;
+    for (const t of ['A','B','C']) {
+      const torreDiv = document.querySelector(`.torre[data-torre="${t}"]`);
+      if (torreDiv.contains(discoSelecionado)) {
+        origem = t;
+        break;
+      }
+    }
+    if (!origem || origem === destino) return; // mesmo lugar ou não encontrado
+
+    const discoOrigem = torres[origem][torres[origem].length -1];
+    const discoDestino = torres[destino].length > 0 ? torres[destino][torres[destino].length -1] : Infinity;
+
+    if (discoOrigem > discoDestino) {
+      alert('Movimento inválido: não pode colocar disco maior sobre menor.');
+      return;
+    }
+
+    // Executar movimento
+    torres[origem].pop();
+    torres[destino].push(discoOrigem);
+
+    movimentos++;
+    atualizarMovimentos();
+
+    atualizarVisual();
+
+    // Limpar seleção
+    discoSelecionado.classList.remove('selecionado');
+    discoSelecionado = null;
+
+    checarVitoria();
+  }
+
+  function atualizarVisual() {
+    ['A','B','C'].forEach(t => {
+      const torreDiv = document.querySelector(`.torre[data-torre="${t}"]`);
+      torreDiv.innerHTML = `<div class="torre-label">${t}</div>`;
+      torres[t].forEach(d => {
+        const disco = criarDisco(d);
+        torreDiv.appendChild(disco);
+      });
+    });
+  }
+
+  function checarVitoria() {
+    // O jogo termina quando todos os discos estão na torre C
+    if (torres.C.length === numDiscos) {
+      document.getElementById('mensagem').textContent = `🎉 Parabéns! Você completou a Torre de Hanoi em ${movimentos} movimentos!`;
+      // Remover seleção e eventos para evitar novos movimentos
+      discoSelecionado = null;
+      // opcional: remover eventos para bloquear jogo
+      ['A','B','C'].forEach(t => {
+        const torreDiv = document.querySelector(`.torre[data-torre="${t}"]`);
+        torreDiv.removeEventListener('click', () => tentarMover(t));
+        torreDiv.removeEventListener('dragover', torreDragOver);
+        torreDiv.removeEventListener('drop', torreDrop);
+      });
+    }
+  }
+
+  function atualizarMovimentos() {
+    document.getElementById('movimentos').textContent = `Movimentos: ${movimentos}`;
+  }
+
+  // Drag and drop para melhorar UX (opcional)
+  function discoDragStart(event) {
+    const disco = event.target;
+    const torreDiv = disco.parentElement;
+    const torreId = torreDiv.dataset.torre;
+
+    // Só permite arrastar disco do topo
+    if (torres[torreId][torres[torreId].length - 1] != parseInt(disco.dataset.tamanho)) {
+      event.preventDefault();
+      return;
+    }
+    event.dataTransfer.setData('text/plain', torreId);
+  }
+
+  function torreDragOver(event) {
+    event.preventDefault();
+  }
+
+  function torreDrop(event) {
+    event.preventDefault();
+    const origem = event.dataTransfer.getData('text/plain');
+    const destino = event.currentTarget.dataset.torre;
+    if (origem === destino) return;
+
+    const discoOrigem = torres[origem][torres[origem].length -1];
+    const discoDestino = torres[destino].length > 0 ? torres[destino][torres[destino].length -1] : Infinity;
+
+    if (discoOrigem > discoDestino) {
+      alert('Movimento inválido: não pode colocar disco maior sobre menor.');
+      return;
+    }
+
+    torres[origem].pop();
+    torres[destino].push(discoOrigem);
+
+    movimentos++;
+    atualizarMovimentos();
+
+    atualizarVisual();
+    checarVitoria();
+  }
+
+  // Inicia o jogo ao carregar a página
+  window.onload = iniciarJogo;
+</script>
+
+</body>
+</html>

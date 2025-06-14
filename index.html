@@ -76,6 +76,17 @@
     margin-top: 15px;
     font-weight: bold;
   }
+
+  #historico {
+    margin-top: 30px;
+    text-align: left;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+    background: #eee;
+    padding: 10px;
+    border-radius: 6px;
+  }
 </style>
 </head>
 <body>
@@ -103,81 +114,73 @@
 
 <div id="mensagem"></div>
 <div id="movimentos">Movimentos: 0</div>
+<div id="historico"></div>
 
 <script>
-  // Número de discos escolhido pelo usuário (padrão 3)
   let numDiscos = 3;
-
-  // Representação das torres como pilhas (arrays)
   let torres = { A: [], B: [], C: [] };
-
-  // Disco que o usuário selecionou para mover (null se nenhum)
   let discoSelecionado = null;
-
-  // Contador de movimentos feitos pelo jogador
   let movimentos = 0;
 
-  // Cria visualmente um disco com tamanho e cor de acordo
+  function salvarHistorico(movimentos) {
+    const historico = JSON.parse(localStorage.getItem('historicoHanoi') || '[]');
+    historico.push({ data: new Date().toLocaleString(), movimentos });
+    localStorage.setItem('historicoHanoi', JSON.stringify(historico));
+    exibirHistorico();
+  }
+
+  function exibirHistorico() {
+    const historico = JSON.parse(localStorage.getItem('historicoHanoi') || '[]');
+    const div = document.getElementById('historico');
+    if (historico.length === 0) {
+      div.innerHTML = '<h3>Histórico de partidas:</h3><p>Nenhuma partida registrada.</p>';
+      return;
+    }
+    div.innerHTML = '<h3>Histórico de partidas:</h3>' +
+      historico.map(h => `<p>Data: ${h.data} - Movimentos: ${h.movimentos}</p>`).join('');
+  }
+
   function criarDisco(tamanho) {
     const div = document.createElement('div');
     div.classList.add('disco');
     div.dataset.tamanho = tamanho;
-    div.draggable = true; // Permite arrastar com o mouse
-
-    // Evento para iniciar arrastar o disco
+    div.draggable = true;
     div.addEventListener('dragstart', discoDragStart);
-    // Evento para selecionar o disco clicando nele
     div.addEventListener('click', () => selecionarDisco(div));
     return div;
   }
 
-  // Inicia o jogo configurando torres e discos conforme o número escolhido
   function iniciarJogo() {
-    // Pega o número de discos digitado
     numDiscos = parseInt(document.getElementById('numDiscos').value);
-
-    // Verifica se o número está entre 3 e 5
     if (isNaN(numDiscos) || numDiscos < 3 || numDiscos > 5) {
       alert('Digite um número entre 3 e 5.');
       return;
     }
-
-    // Reseta as torres, seleção e contador de movimentos
     torres = { A: [], B: [], C: [] };
     discoSelecionado = null;
     movimentos = 0;
     atualizarMovimentos();
     document.getElementById('mensagem').textContent = '';
-
-    // Mostra o botão reiniciar
     document.getElementById('btnReiniciar').style.display = 'inline-block';
-
-    // Limpa as torres na tela e remove eventos antigos
     document.querySelectorAll('.torre').forEach(torreDiv => {
       torreDiv.innerHTML = `<div class="torre-label">${torreDiv.dataset.torre}</div>`;
-      torreDiv.replaceWith(torreDiv.cloneNode(true)); // Remove eventos antigos
+      torreDiv.replaceWith(torreDiv.cloneNode(true));
     });
-
-    // Seleciona a torre A para colocar os discos iniciais
     const torreA = document.querySelector('.torre[data-torre="A"]');
-
-    // Coloca os discos na torre A, do maior (embaixo) para o menor (topo)
+    const torreB = document.querySelector('.torre[data-torre="B"]');
+    const torreC = document.querySelector('.torre[data-torre="C"]');
     for (let i = numDiscos; i >= 1; i--) {
       torres.A.push(i);
-      const disco = criarDisco(i);
-      torreA.appendChild(disco);
+      torreA.appendChild(criarDisco(i));
     }
-
-    // Configura eventos para as torres (drag and drop e clique)
-    ['A', 'B', 'C'].forEach(t => {
-      const torreDiv = document.querySelector(`.torre[data-torre="${t}"]`);
+    [torreA, torreB, torreC].forEach(torreDiv => {
       torreDiv.addEventListener('dragover', torreDragOver);
       torreDiv.addEventListener('drop', torreDrop);
-      torreDiv.addEventListener('click', () => tentarMover(t));
+      torreDiv.addEventListener('click', () => tentarMover(torreDiv.dataset.torre));
     });
+    exibirHistorico();
   }
 
-  // Reinicia o jogo limpando mensagens e reiniciando as torres
   function reiniciarJogo() {
     document.getElementById('mensagem').textContent = '';
     discoSelecionado = null;
@@ -186,22 +189,14 @@
     iniciarJogo();
   }
 
-  // Seleciona um disco quando o usuário clica nele
   function selecionarDisco(div) {
-    // Remove seleção antiga, se tiver
-    if (discoSelecionado) {
-      discoSelecionado.classList.remove('selecionado');
-    }
-    // Marca o novo disco como selecionado
+    if (discoSelecionado) discoSelecionado.classList.remove('selecionado');
     discoSelecionado = div;
     discoSelecionado.classList.add('selecionado');
   }
 
-  // Tenta mover o disco selecionado para a torre clicada
   function tentarMover(destino) {
-    if (!discoSelecionado) return; // Se não tiver disco selecionado, sai
-
-    // Descobre de qual torre veio o disco selecionado
+    if (!discoSelecionado) return;
     let origem = null;
     for (const t of ['A','B','C']) {
       const torreDiv = document.querySelector(`.torre[data-torre="${t}"]`);
@@ -210,87 +205,85 @@
         break;
       }
     }
-
-    // Se não encontrou a origem ou destino é igual à origem, não faz nada
     if (!origem || origem === destino) return;
-
-    // Pega o tamanho do disco que está sendo movido
     const discoOrigem = torres[origem][torres[origem].length -1];
-
-    // Pega o disco do topo da torre destino, ou infinito se vazio
     const discoDestino = torres[destino].length > 0 ? torres[destino][torres[destino].length -1] : Infinity;
-
-    // Verifica se o movimento é válido (disco menor sobre maior)
     if (discoOrigem > discoDestino) {
       alert('Movimento inválido: não pode colocar disco maior sobre menor.');
       return;
     }
-
-    // Remove disco da torre origem e adiciona na torre destino
     torres[origem].pop();
     torres[destino].push(discoOrigem);
-
     movimentos++;
     atualizarMovimentos();
     atualizarVisual();
-
-    // Remove seleção do disco depois do movimento
     discoSelecionado.classList.remove('selecionado');
     discoSelecionado = null;
-
-    // Verifica se o jogo foi finalizado com sucesso
     checarVitoria();
   }
 
-  // Atualiza a visualização dos discos nas torres
   function atualizarVisual() {
     ['A','B','C'].forEach(t => {
       const torreDiv = document.querySelector(`.torre[data-torre="${t}"]`);
-      // Limpa todos os discos para atualizar
       torreDiv.innerHTML = `<div class="torre-label">${t}</div>`;
-
-      // Adiciona discos de acordo com o array da torre
-      torres[t].forEach(d => {
-        const disco = criarDisco(d);
-        torreDiv.appendChild(disco);
-      });
+      torres[t].forEach(d => torreDiv.appendChild(criarDisco(d)));
     });
   }
 
-  // Confere se todos os discos estão na torre C, ou seja, se o jogo terminou
   function checarVitoria() {
     if (torres.C.length === numDiscos) {
-      document.getElementById('mensagem').textContent =
-        `🎉 Parabéns! Você completou a Torre de Hanoi em ${movimentos} movimentos!`;
+      document.getElementById('mensagem').textContent = `🎉 Parabéns! Você completou a Torre de Hanoi em ${movimentos} movimentos!`;
+      salvarHistorico(movimentos);
       discoSelecionado = null;
+      ['A','B','C'].forEach(t => {
+        const torreDiv = document.querySelector(`.torre[data-torre="${t}"]`);
+        torreDiv.removeEventListener('click', () => tentarMover(t));
+        torreDiv.removeEventListener('dragover', torreDragOver);
+        torreDiv.removeEventListener('drop', torreDrop);
+      });
     }
   }
 
-  // Atualiza o contador de movimentos na tela
   function atualizarMovimentos() {
     document.getElementById('movimentos').textContent = `Movimentos: ${movimentos}`;
   }
 
-  // Eventos para drag and drop dos discos
-  function discoDragStart(e) {
-    // Marca o disco que está sendo arrastado
-    e.dataTransfer.setData('text/plain', e.target.dataset.tamanho);
-    discoSelecionado = e.target;
-    discoSelecionado.classList.add('selecionado');
+  function discoDragStart(event) {
+    const disco = event.target;
+    const torreDiv = disco.parentElement;
+    const torreId = torreDiv.dataset.torre;
+    if (torres[torreId][torres[torreId].length - 1] != parseInt(disco.dataset.tamanho)) {
+      event.preventDefault();
+      return;
+    }
+    event.dataTransfer.setData('text/plain', torreId);
   }
 
-  // Permite que o elemento receba o drop (precisa prevenir o padrão)
-  function torreDragOver(e) {
-    e.preventDefault();
+  function torreDragOver(event) {
+    event.preventDefault();
   }
 
-  // Quando o disco é "solto" na torre, tenta mover
-  function torreDrop(e) {
-    e.preventDefault();
-    const torreDestino = e.currentTarget.dataset.torre;
-    tentarMover(torreDestino);
+  function torreDrop(event) {
+    event.preventDefault();
+    const origem = event.dataTransfer.getData('text/plain');
+    const destino = event.currentTarget.dataset.torre;
+    if (origem === destino) return;
+    const discoOrigem = torres[origem][torres[origem].length -1];
+    const discoDestino = torres[destino].length > 0 ? torres[destino][torres[destino].length -1] : Infinity;
+    if (discoOrigem > discoDestino) {
+      alert('Movimento inválido: não pode colocar disco maior sobre menor.');
+      return;
+    }
+    torres[origem].pop();
+    torres[destino].push(discoOrigem);
+    movimentos++;
+    atualizarMovimentos();
+    atualizarVisual();
+    checarVitoria();
   }
+
+  window.onload = iniciarJogo;
 </script>
-
 </body>
 </html>
+
